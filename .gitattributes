@@ -1,0 +1,9 @@
+# Keep shell/python scripts LF so they run correctly after a clone on any OS
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+# Treat images as binary (they should never be committed anyway; see .gitignore)
+*.img binary
+*.bin binary
+*.zip binary

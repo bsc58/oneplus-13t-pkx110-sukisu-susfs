@@ -1,0 +1,38 @@
+# === NEVER commit device-specific or personal artifacts ===
+# Partition images are bound to YOUR device/firmware — never publish them.
+*.img
+*.img.gz
+*.bin
+
+# Build inputs you must supply from your own phone, and build outputs
+stock/
+device/
+out/
+dist/
+release/
+work/
+*.log
+kernel.config
+System.map*
+vmlinux*
+
+# Root-manager / hiding configs — these contain YOUR installed-app list
+*.allowlist
+**/hide_my_applist*/
+config.json
+
+# Toolchain / fetched source trees (large, reproducible from build_13t.sh)
+zyc-clang/
+clang*/
+kernel_platform/
+KernelSU/
+susfs4ksu/
+wild_*/
+AnyKernel3/
+*.tar.gz
+*.tar.xz
+*.zip
+
+# OS cruft
+.DS_Store
+Thumbs.db
