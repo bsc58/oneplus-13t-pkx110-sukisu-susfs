@@ -13,8 +13,18 @@
 - 刷内核有**变砖风险**。本记录的作者在一台真机上成功刷入并长期使用,但**你的固件小版本、模块组合都可能不同**,成功案例不是保证。
 - **13T 的 EDL(9008)需要厂商鉴权的 Firehose**,民间几乎救不回(基本只能找付费线刷服务)。所以**唯一可靠的安全垫 = 已解锁的 Bootloader + fastboot + 你自己备份的原厂 `boot` / `init_boot`**。动手前务必自己备份,见 [`docs/05-recovery.md`](docs/05-recovery.md)。
 - **不要升级到 ColorOS 16.0.3.501 及以上**。社区反馈称从该版本起启用了硬件防回滚,之后再刷旧固件会**直接变砖**。
-- 本仓库**不提供任何镜像文件**。内核必须**以你自己手机的原厂 `boot.img` 为基底**重新构建/打包——boot 头、AVB 属性、厂商模块符号都和你的固件版本绑定,**别人的 `boot.img` 刷进你的手机很可能不开机**。
+- 本仓库通过 [Releases](https://github.com/bsc58/oneplus-13t-pkx110-sukisu-susfs/releases/latest) 提供**预编译的 AnyKernel3 内核刷机包**(仅含内核、刷入时打到你**自己当前的 `boot`** 上,不含任何原厂整机镜像)。它与固件小版本、GKI 版本强绑定:**只适用于 PKX110 对应固件,刷错机型/固件可能不开机甚至变砖**。拿不准就按 [`docs/02-build-kernel.md`](docs/02-build-kernel.md) **以你自己手机的原厂 `boot.img` 为基底**重新构建(boot 头、AVB 属性、厂商模块符号都和你的固件版本绑定)。
 - 一切后果自负。本仓库仅供学习与互操作性研究使用,不含任何担保(provided as-is, no warranty)。
+
+## 下载 / 预编译刷机包
+
+不想自己编译,预编译内核放在 [**Releases**](https://github.com/bsc58/oneplus-13t-pkx110-sukisu-susfs/releases/latest):
+
+- 文件:`AnyKernel3_SukiSU-Ultra_6.6.56-android15-8-gb1fee232c2b5-sukisu-4k.zip`
+- SHA256:`F8F0A72509CF6B996CE11BEEBC4B586DEBE5851F1AEC1A3CDE1B772D0E0D45B3`
+- 这是 **AnyKernel3** 包(仅含内核 Image + 刷入脚本),刷入时把内核打到你**自己当前的 `boot`** 上,不含任何原厂镜像。
+- **仅适用于 OnePlus 13T(PKX110)对应的 GKI 固件**(作者机为 15.0.2.108 CN01)。此包关闭了设备校验,**刷错机型/固件会变砖**——动手前务必先备份 `boot`(见 [`docs/05-recovery.md`](docs/05-recovery.md))。
+- 刷入与回滚步骤见 [`docs/03-flash-and-boot.md`](docs/03-flash-and-boot.md);已 root 的可直接用 Kernel Flasher 刷这个 zip。
 
 ## 这是给谁的
 
