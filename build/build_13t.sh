@@ -6,7 +6,7 @@
 #
 # Run inside Linux (WSL2 Ubuntu 24.04 is fine) on a case-sensitive filesystem:
 #   sudo bash build_13t.sh            # all steps
-#   sudo bash build_13t.sh build      # a single step: deps|fetch|ksu|susfs|hmbird|abi|lkmguard|config|build|collect
+#   sudo bash build_13t.sh build      # a single step: deps|fetch|ksu|susfs|hmbird|abi|lkmguard|identity|config|build|collect
 #   sudo bash build_13t.sh clean      # optional: drop the object directory before a from-scratch rebuild
 # Then: sudo bash pack_verify.sh        # repack boot.img, verify it offline (no device involved), fill release/
 set -Eeuo pipefail
@@ -24,6 +24,12 @@ HMBIRD="${HMBIRD:-1}"
 # 1 = the kernel refuses to load a module named "kernelsu" (a KernelSU LKM left over in init_boot
 # can then never run next to the built-in SukiSU); 0 = leave the module loader untouched.
 LKM_GUARD="${LKM_GUARD:-1}"
+# 1 = report the stock PKX110 15.0.2.108 kernel identity to userspace (uname(2), /proc/version, boot banner).
+# Without it any app can read "-sukisu-4k" through uname(2), or through personality(UNAME26) even when the
+# SUSFS uname spoof is set. KERNELRELEASE and the module vermagic keep the real release.
+STOCK_ID="${STOCK_ID:-1}"
+PKG_VERSION="${PKG_VERSION:-v1.1}"     # appended to the AnyKernel3 zip name
+PATCH_DIR="${PATCH_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/patches}"
 TOOLS_DIR="${TOOLS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../tools" && pwd)}"
 
 # ---------------------------------------------------------------- pinned inputs
@@ -263,6 +269,17 @@ step_lkmguard() {
   if [ -n "$(find kernel arch/arm64 -name '*.rej' -print -quit)" ]; then die "LKM guard patch left rejects"; fi
 }
 
+step_identity() {
+  if [ "$STOCK_ID" != 1 ]; then log "Stock identity skipped (STOCK_ID=0)"; return 0; fi
+  log "Reporting the stock kernel identity to userspace (uname, /proc/version, boot banner)"
+  cd "$COMMON"
+  ! grep -q '^#define UTS_RELEASE "6.6.30-android15-8-g06c41a4a6e98' init/version-timestamp.c \
+    || die "this tree already carries the identity patch; run the 'fetch' step first (it resets the tree) and redo the later steps"
+  patch -p1 --forward --batch --fuzz=0 --no-backup-if-mismatch < "$PATCH_DIR/stock_identity.patch"
+  if [ -n "$(find init kernel -name '*.rej' -print -quit)" ]; then die "identity patch left rejects"; fi
+  grep -qF 'const char *rest = utsname()->release;' kernel/sys.c || die "identity patch: UNAME26 hunk missing"
+}
+
 step_config() {
   log "Configuring (gki_defconfig + KSU/SUSFS, 4K pages, LTO=$LTO)"
   cd "$COMMON"
@@ -319,9 +336,13 @@ kmake() {
   # this tree tests it, it is here only so the compiler flags match the reference builds.
   local kcflags="-Wno-error -pipe -D__ANDROID_COMMON_KERNEL__"
   [ "$CPU_OPT" = 1 ] && kcflags="$kcflags -mcpu=oryon-1"
+  # compile-by/host and version stamp of the stock kernel banner (see step_identity)
+  local id=(KBUILD_BUILD_USER=build KBUILD_BUILD_HOST=op13t)
+  [ "$STOCK_ID" = 1 ] && id=(KBUILD_BUILD_USER=kleaf KBUILD_BUILD_HOST=build-host KBUILD_BUILD_VERSION=1 \
+    "KBUILD_BUILD_TIMESTAMP=Mon Jan 20 03:24:58 UTC 2025")
   PATH="$CLANG/bin:$PATH" make -C "$COMMON" O="$OUT" -j"$JOBS" \
     ARCH=arm64 SUBARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu- \
-    LOCALVERSION= KBUILD_BUILD_USER=build KBUILD_BUILD_HOST=op13t \
+    LOCALVERSION= "${id[@]}" \
     KCFLAGS="$kcflags" "$@"
 }
 
@@ -355,17 +376,22 @@ step_collect() {
   # the symbol lists the module loader of THIS kernel enforces (generated from android/abi_gki_aarch64*)
   cp "$OUT/include/generated/gki_module_unprotected.h" "$OUT/include/generated/gki_module_protected_exports.h" "$DIST/"
   grep -E 'SukiSU-Ultra version|SUSFS_VERSION' "$WORK/build.log" | sort -u > "$DIST/ksu_version.txt" || true
-  local rel; rel=$(strings "$DIST/Image" | awk '/^Linux version/ && !seen { print $3; seen = 1 }')
-  [ -n "$rel" ] || die "could not read the kernel release from the Image"
+  # the real release (KERNELRELEASE); with STOCK_ID=1 the banner in the Image reports the stock one
+  local rel; rel=$(cat "$OUT/include/config/kernel.release" 2>/dev/null || true)
+  [ -n "$rel" ] || die "could not read the kernel release from $OUT/include/config/kernel.release"
+  local banner; banner=$(strings "$DIST/Image" | awk '/^Linux version/ && !seen { print; seen = 1 }')
+  [ -n "$banner" ] || die "could not read the version banner from the Image"
   rm -rf "$WORK/ak3"; cp -r "$WORK/AnyKernel3" "$WORK/ak3"; rm -rf "$WORK/ak3/.git"
   cp "$DIST/Image" "$WORK/ak3/Image"
-  ( cd "$WORK/ak3" && zip -q -r9 "$DIST/AnyKernel3_SukiSU-Ultra_${rel}.zip" . )
+  ( cd "$WORK/ak3" && zip -q -r9 "$DIST/AnyKernel3_SukiSU-Ultra_${rel}${PKG_VERSION:+_$PKG_VERSION}.zip" . )
   {
     echo "kernel_release=$rel"
+    echo "package_version=$PKG_VERSION"
+    echo "reported_identity=$banner"
     echo "kernel_source=$KERNEL_URL @ $KERNEL_REF"
     echo "sukisu=$SUKISU_URL @ $SUKISU_REF (branch builtin; version identity pinned to v$SUKISU_TAG / KSU_VERSION $((40000 + SUKISU_MAIN_COMMITS - 2815)) to match the manager of that release)"
     echo "susfs=$SUSFS_URL @ $SUSFS_REF"
-    echo "local_changes=su_compat switch defined as a static key (matches the SUSFS hooks); __counted_by kept empty (module CRCs); lkm_guard=$LKM_GUARD"
+    echo "local_changes=su_compat switch defined as a static key (matches the SUSFS hooks); __counted_by kept empty (module CRCs); lkm_guard=$LKM_GUARD; stock_identity=$STOCK_ID"
     echo "compiler_warnings=$(grep -c 'warning:' "$WORK/build.log" || true)"
     echo "compat_helper=$WILD_URL @ $WILD_REF ; $WILDP_URL @ $WILDP_REF"
     echo "anykernel3=$AK3_URL @ $AK3_REF"
@@ -376,6 +402,6 @@ step_collect() {
   cat "$DIST/BUILD_INFO.txt"
 }
 
-steps=("$@"); [ ${#steps[@]} -eq 0 ] && steps=(deps fetch ksu susfs hmbird abi lkmguard config build collect)
+steps=("$@"); [ ${#steps[@]} -eq 0 ] && steps=(deps fetch ksu susfs hmbird abi lkmguard identity config build collect)
 for s in "${steps[@]}"; do "step_$s"; done
 log "Done"

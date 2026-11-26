@@ -33,7 +33,7 @@ fastboot boot boot_sukisu_13t.img
 
 - `fastboot boot` 只把内核**载入内存启动,不写任何分区**;重启后内核就回到原厂。但 `/data` 里的授权列表会像第 0 步说的那样被转换。
 - 它在 13T 上**不保证可用**(有机型会报错或直接启动原系统——那样也没损失)。
-- 若成功进系统:`adb shell uname -r` 应显示 `6.6.56-android15-8-g...-sukisu-4k`。**趁机检查 Wi-Fi、蓝牙、移动网络、相机、指纹、充电、NFC 是否正常。**
+- 若成功进系统:`adb shell "zcat /proc/config.gz | grep -c CONFIG_KSU_SUSFS=y"` 应输出 `1`。v1.1 起内核对外报告原厂版本串,`uname -r` 与原厂相同,不能再用它区分。**趁机检查 Wi-Fi、蓝牙、移动网络、相机、指纹、充电、NFC 是否正常。**
 - 注意这一次启动是**过渡状态**(旧 `ksud` + 新内核),带 SELinux 规则的模块(如 Zygisk Next、LSPosed)多半**暂时不工作**,属正常;重启回原内核即可。
 - 卡住不动:长按电源(不行再加音量上)强制重启,回到原状态。
 

@@ -20,8 +20,8 @@
 
 不想自己编译,预编译内核放在 [**Releases**](https://github.com/bsc58/oneplus-13t-pkx110-sukisu-susfs/releases/latest):
 
-- 文件:`AnyKernel3_SukiSU-Ultra_6.6.56-android15-8-gb1fee232c2b5-sukisu-4k.zip`
-- SHA256:`F8F0A72509CF6B996CE11BEEBC4B586DEBE5851F1AEC1A3CDE1B772D0E0D45B3`
+- 文件:`AnyKernel3_SukiSU-Ultra_6.6.56-android15-8-gb1fee232c2b5-sukisu-4k_v1.1.zip`
+- SHA256:`913198FBE66768129D9AEA475D22C9C20EB1B6DE73DE39DE86E0A59416759D8A`
 - 这是 **AnyKernel3** 包(仅含内核 Image + 刷入脚本),刷入时把内核打到你**自己当前的 `boot`** 上,不含任何原厂镜像。
 - **仅适用于 OnePlus 13T(PKX110)对应的 GKI 固件**(作者机为 15.0.2.108 CN01)。此包关闭了设备校验,**刷错机型/固件会变砖**——动手前务必先备份 `boot`(见 [`docs/05-recovery.md`](docs/05-recovery.md))。
 - 刷入与回滚步骤见 [`docs/03-flash-and-boot.md`](docs/03-flash-and-boot.md);已 root 的可直接用 Kernel Flasher 刷这个 zip。

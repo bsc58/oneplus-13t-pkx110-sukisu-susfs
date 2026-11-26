@@ -1,0 +1,58 @@
+--- a/init/version-timestamp.c
++++ b/init/version-timestamp.c
+@@ -7,6 +7,19 @@
+ #include <linux/uts.h>
+ #include <linux/utsname.h>
+ 
++/*
++ * OP13T: report the identity of the stock PKX110 15.0.2.108 kernel to userspace
++ * (uname(2), /proc/version, /proc/sys/kernel/osrelease, boot banner). Only these
++ * strings change; UTS_RELEASE in <generated/utsrelease.h> (KERNELRELEASE, module
++ * vermagic) stays the real one. LINUX_COMPILE_BY/HOST and UTS_VERSION come from
++ * KBUILD_BUILD_USER=kleaf KBUILD_BUILD_HOST=build-host KBUILD_BUILD_VERSION=1
++ * KBUILD_BUILD_TIMESTAMP="Mon Jan 20 03:24:58 UTC 2025".
++ */
++#undef UTS_RELEASE
++#define UTS_RELEASE "6.6.30-android15-8-g06c41a4a6e98-abogki395793266-4k"
++#undef LINUX_COMPILER
++#define LINUX_COMPILER "Android (11368308, +pgo, +bolt, +lto, +mlgo, based on r510928) clang version 18.0.0 (https://android.googlesource.com/toolchain/llvm-project 477610d4d0d988e69dbc3fae4fe86bff3f07f2b5), LLD 18.0.0"
++
+ struct uts_namespace init_uts_ns = {
+ 	.ns.count = REFCOUNT_INIT(2),
+ 	.name = {
+--- a/init/version.c
++++ b/init/version.c
+@@ -32,11 +32,6 @@
+ }
+ early_param("hostname", early_hostname);
+ 
+-const char linux_proc_banner[] =
+-	"%s version %s"
+-	" (" LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST ")"
+-	" (" LINUX_COMPILER ") %s\n";
+-
+ BUILD_SALT;
+ BUILD_LTO_INFO;
+ 
+@@ -51,4 +46,10 @@
+ 
+ #include "version-timestamp.c"
+ 
++/* OP13T: defined after version-timestamp.c so it uses the same LINUX_COMPILER as linux_banner */
++const char linux_proc_banner[] =
++	"%s version %s"
++	" (" LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST ")"
++	" (" LINUX_COMPILER ") %s\n";
++
+ EXPORT_SYMBOL_GPL(init_uts_ns);
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -1303,7 +1303,7 @@
+ 	int ret = 0;
+ 
+ 	if (current->personality & UNAME26) {
+-		const char *rest = UTS_RELEASE;
++		const char *rest = utsname()->release;	/* OP13T: runtime release (init_uts_ns), not the compile-time UTS_RELEASE */
+ 		char buf[65] = { 0 };
+ 		int ndots = 0;
+ 		unsigned v;

@@ -3,6 +3,7 @@
 *.sh text eol=lf
 *.py text eol=lf
 *.md text eol=lf
+*.patch text eol=lf
 # Treat images as binary (they should never be committed anyway; see .gitignore)
 *.img binary
 *.bin binary
